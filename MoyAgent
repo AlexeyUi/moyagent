@@ -1,0 +1,249 @@
+t_protocol import Agent as BaseAgent
+from agent_protocol import StepRequestBody, Step
+from tools.shell_run import run_safe_shell
+from tools.files_write import safe_write_file
+from tools.llm_openai import llm_simple_chat, llm_route_command
+from tools.context_memory import add_message, get_history, clear_history
+from tools.weather import get_weather
+from tools.memory import load_memory, add_memory, clear_memory
+
+BASE_DIR = Path(__file__).parent
+NOTES_PATH = BASE_DIR / "notes.txt"
+TASKS_PATH = BASE_DIR / "tasks.txt"
+
+
+class MoyAgent(BaseAgent):
+    async def execute_step(self, step_request: StepRequestBody) -> Step:
+        now = datetime.now().strftime("%H:%M")
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        raw_input = step_request.input or ""
+        user_input = raw_input.strip().lower()
+
+        def make_step(name, output, is_last=True):
+            return Step(
+                task_id=step_request.task_id,
+                step_id=str(uuid4()),
+                name=name,
+                input=raw_input,
+                additional_input=step_request.additional_input or {},
+                output=output,
+                additional_output={},
+                artifacts=[],
+                is_last=is_last,
+                status="completed",
+            )
+
+        if user_input.startswith("shell:"):
+            cmd = raw_input.split(":", 1)[1].strip()
+            return make_step("shell_step", run_safe_shell(cmd) if cmd else "Формат: shell: ls")
+
+        if user_input.startswith("write:"):
+            payload = raw_input.split(":", 1)[1].strip()
+            if ":::" in payload:
+                p, c = payload.split(":::", 1)
+                return make_step("write_step", safe_write_file(p.strip(), c.lstrip()))
+            return make_step("write_step", "Формат: write: путь ::: текст")
+
+        if user_input.startswith("add_note"):
+            note_text = raw_input.split(":", 1)[1].strip() if ":" in raw_input else ""
+            if not note_text:
+                return make_step("add_note_step", "Формат: add_note: текст")
+            with NOTES_PATH.open("a", encoding="utf-8") as fh:
+                fh.write("[" + now + "] " + note_text + "\n")
+            return make_step("add_note_step", "Заметка добавлена: " + note_text)
+
+        if user_input in ("list_notes", "заметки", "показать заметки"):
+            out = "Заметки:\n\n" + NOTES_PATH.read_text(encoding="utf-8") if NOTES_PATH.exists() else "Заметок нет."
+            return make_step("list_notes_step", out)
+
+        if user_input in ("clear_notes", "очистить заметки"):
+            NOTES_PATH.write_text("", encoding="utf-8")
+            return make_step("clear_notes_step", "Заметки очищены.")
+
+        if user_input.startswith("add_task"):
+            payload = raw_input.split(":", 1)[1].strip() if ":" in raw_input else ""
+            if not payload:
+                return make_step("add_task_step", "Формат: add_task: текст | приоритет | дата")
+            parts = [p.strip() for p in payload.split("|")]
+            text = parts[0] if parts else ""
+            priority = parts[1] if len(parts) > 1 else "normal"
+            due = parts[2] if len(parts) > 2 else "без даты"
+            with TASKS_PATH.open("a", encoding="utf-8") as fh:
+                fh.write("[ ] " + text + " | p=" + priority + " | due=" + due + "\n")
+            return make_step("add_task_step", "Задача добавлена: " + text + " (приоритет: " + priority + ", дата: " + due + ")")
+
+        if user_input in ("list_tasks", "задачи", "показать задачи"):
+            if TASKS_PATH.exists():
+                lines = TASKS_PATH.read_text(encoding="utf-8").splitlines()
+                out = "Задачи:\n\n" + "\n".join(str(i+1) + ". " + l for i, l in enumerate(lines)) if lines else "Список пуст."
+            else:
+                out = "tasks.txt не создан."
+            return make_step("list_tasks_step", out)
+
+        if user_input.startswith("done_task"):
+            num_str = raw_input.split(":", 1)[1].strip() if ":" in raw_input else ""
+            lines = TASKS_PATH.read_text(encoding="utf-8").splitlines() if TASKS_PATH.exists() else []
+            try:
+                idx = int(num_str)
+                line = lines[idx - 1]
+                lines[idx - 1] = "[x]" + line[3:] if line.startswith("[ ]") else "[x] " + line
+                TASKS_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+                out = "Задача " + str(idx) + " выполнена."
+            except Exception as e:
+                out = "Ошибка: " + str(e)
+            return make_step("done_task_step", out)
+
+        if user_input in ("clear_tasks", "очистить задачи"):
+            TASKS_PATH.write_text("", encoding="utf-8")
+            return make_step("clear_tasks_step", "Задачи очищены.")
+
+        if user_input in ("analyze_day", "анализ дня", "анализ задач"):
+            if not TASKS_PATH.exists():
+                return make_step("analyze_day_step", "Нет задач.")
+            lines = TASKS_PATH.read_text(encoding="utf-8").splitlines()
+            overdue, today_tasks, future, done = [], [], [], []
+            for l in lines:
+                if l.startswith("[x]"):
+                    done.append(l)
+                elif "due=" in l:
+                    due = l.split("due=", 1)[1].strip()
+                    if due < today_str:
+                        overdue.append(l)
+                    elif due == today_str:
+                        today_tasks.append(l)
+                    else:
+                        future.append(l)
+                else:
+                    future.append(l)
+            parts = ["Анализ задач:"]
+            if overdue:
+                parts += ["Просроченные:"] + ["- " + l for l in overdue]
+            if today_tasks:
+                parts += ["На сегодня:"] + ["- " + l for l in today_tasks]
+            if future:
+                parts += ["На потом:"] + ["- " + l for l in future]
+            if done:
+                parts += ["Сделано:"] + ["- " + l for l in done]
+            return make_step("analyze_day_step", "\n".join(parts))
+
+        if user_input.startswith("read_file"):
+            path = raw_input.split(":", 1)[1].strip() if ":" in raw_input else ""
+            if not path:
+                return make_step("read_file_step", "Формат: read_file: путь")
+            target = (BASE_DIR / path).resolve()
+            if BASE_DIR not in target.parents and BASE_DIR != target:
+                return make_step("read_file_step", "Нельзя читать файлы вне папки агента.")
+            out = path + ":\n\n" + target.read_text(encoding="utf-8") if target.exists() else "Файл не найден: " + path
+            return make_step("read_file_step", out)
+        # Диспетчер LLM
+        history = get_history()
+        add_message("user", raw_input)
+        route = llm_route_command(raw_input, history)
+        cmd = route.get("command", "none")
+        args = route.get("args", {}) or {}
+
+        if cmd == "add_note":
+            step_request.input = "add_note: " + (args.get("text") or raw_input)
+            result = await self.execute_step(step_request)
+            add_message("assistant", result.output)
+            return result
+
+        if cmd == "add_task":
+            text = args.get("text") or raw_input
+            priority = args.get("priority") or "normal"
+            due = args.get("due") or "без даты"
+            step_request.input = "add_task: " + text + " | " + priority + " | " + due
+            result = await self.execute_step(step_request)
+            add_message("assistant", result.output)
+            return result
+
+        if cmd == "list_tasks":
+            step_request.input = "list_tasks"
+            result = await self.execute_step(step_request)
+            add_message("assistant", result.output)
+            return result
+
+        if cmd == "list_notes":
+            step_request.input = "list_notes"
+            result = await self.execute_step(step_request)
+            add_message("assistant", result.output)
+            return result
+
+        if cmd == "analyze_day":
+            step_request.input = "analyze_day"
+            result = await self.execute_step(step_request)
+            add_message("assistant", result.output)
+            return result
+
+        if cmd == "show_today_notes":
+            f = BASE_DIR / "output" / "notes" / (today_str + ".txt")
+            out = "Заметки за " + today_str + ":\n\n" + f.read_text(encoding="utf-8") if f.exists() else "Заметок за сегодня нет."
+            add_message("assistant", out)
+            return make_step("show_today_notes_step", out)
+
+        if cmd == "shell":
+            shell_cmd = args.get("cmd") or ""
+            if shell_cmd:
+                step_request.input = "shell: " + shell_cmd
+                result = await self.execute_step(step_request)
+                add_message("assistant", result.output)
+                return result
+
+        if cmd == "write":
+            path = args.get("path") or ""
+            content = args.get("content") or ""
+            if path and content:
+                step_request.input = "write: " + path + " ::: " + content
+                result = await self.execute_step(step_request)
+                add_message("assistant", result.output)
+                return result
+
+        if cmd == "done_task":
+            num = args.get("number") or ""
+            if num:
+                step_request.input = "done_task: " + str(num)
+                result = await self.execute_step(step_request)
+                add_message("assistant", result.output)
+                return result
+
+        if cmd == "get_weather":
+            city = args.get("city") or "прокопьевск"
+            try:
+                weather_text = await get_weather(city)
+                add_message("assistant", weather_text)
+                return make_step("get_weather_step", weather_text)
+            except Exception as e:
+                return make_step("get_weather_step", "Ошибка погоды: " + str(e))
+
+        if cmd == "clear_history":
+            clear_history()
+            return make_step("clear_history_step", "История диалога очищена.")
+
+        if cmd == "remember":
+            fact = args.get("fact") or ""
+            out = add_memory(fact) if fact else "Не понял что запомнить."
+            add_message("assistant", out)
+            return make_step("remember_step", out)
+
+        if cmd == "show_memory":
+            mem = load_memory()
+            out = "Долгосрочная память:\n\n" + mem if mem else "Память пуста."
+            add_message("assistant", out)
+            return make_step("show_memory_step", out)
+
+        if cmd == "clear_memory":
+            out = clear_memory()
+            add_message("assistant", out)
+            return make_step("clear_memory_step", out)
+
+        memory = load_memory()
+        system_content = "Ты ассистент MoyAgent. Отвечай кратко на русском."
+        if memory:
+            system_content = system_content + "\n\nДолгосрочная память о пользователе:\n" + memory
+        prompt = [{"role": "system", "content": system_content}] + history + [{"role": "user", "content": raw_input}]
+        try:
+            answer = llm_simple_chat(prompt)
+            add_message("assistant", answer)
+            return make_step("llm_fallback", answer)
+        except Exception as e:
+            return make_step("llm_fallback", "Ошибка LLM: " + str(e))

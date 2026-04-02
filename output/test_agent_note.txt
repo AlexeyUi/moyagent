@@ -1,0 +1,2 @@
+Тестовая заметка от агента.
+shell: cat output/test_agent_note.txt

@@ -1,0 +1,8 @@
+#!/bin/bash
+
+cd "$(dirname "$0")"
+
+lsof -t -i :8000 | xargs -r kill
+
+source .venv/bin/activate
+poetry run python -m forge
