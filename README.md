@@ -1,57 +1,88 @@
 # MoyAgent
 
-MoyAgent is my personal AI agent project focused on automation, research, browser tools, and assistant workflows.
+MoyAgent is a personal AI agent project focused on automation, research, browser tasks, and assistant workflows.
 
 ## Overview
-The goal of MoyAgent is to build a practical AI assistant that can perform useful actions, work with tools, collect information, and support real automation scenarios.
+
+MoyAgent is built as a practical AI assistant that can perform useful actions, work with tools, collect information, and support real automation scenarios. The goal is a modular, expandable agent that can be adapted for freelance tasks and product solutions.
 
 ## Features
-- Browser-based actions
-- Research and summarization tools
+
+- Browser-based task automation
+- Research and information summarization
+- LLM-based assistant workflows
 - Modular tool structure
-- Python-based architecture
-- Expandable for future workflows and integrations
+- SQLite memory and state tracking
+- Docker support
+- Expandable for future integrations
 
 ## Tech stack
-- Python
+
+- Python 3.12
 - FastAPI
 - Playwright
-- API integrations
-- Linux / WSL
-- Git
+- Ollama (local LLM)
+- SQLite
+- Docker
+- Git / Linux / WSL
 
 ## Project structure
-```text
+
+```
 moyagent/
-├── agent.py
-├── tools/
-│   ├── browser.py
-│   ├── research.py
-│   └── ...
-├── prompts/
-├── memory/
-└── ...
+├── agent.py              # Main agent entry point
+├── ap_agent.py
+├── computer_skills.py
+├── dashboard.py
+├── tools/                # Tool modules
+├── docs/                 # Documentation
+├── tests/                # Tests
+├── tutorials/            # Usage examples
+├── forge/                # Agent framework
+├── output/               # Agent output
+├── .env.example          # Environment config template
+├── Dockerfile
+└── README.md
+```
+
+## Getting started
+
+```bash
+# Clone the repository
+git clone https://github.com/AlexeyUi/moyagent.git
+cd moyagent
+
+# Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your API keys and settings
+
+# Run the agent
+python agent.py
 ```
 
 ## Why I built it
-I’m building MoyAgent as a foundation for AI automation, assistant workflows, and future freelance or product solutions.
+
+MoyAgent is my foundation for practical AI automation. I am building it as a base for freelance solutions, real task automation, and my own product ecosystem.
+
+## Roadmap
+
+- [ ] Improve tool reliability
+- [ ] Add more task workflows
+- [ ] Expand memory and context management
+- [ ] Connect Telegram interface
+- [ ] Production deployment on VPS
 
 ## Status
+
 Active development.
 
-## Planned improvements
-- More reliable browser actions
-- Better workflow chaining
-- Expanded memory capabilities
-- Additional integrations
-- Cleaner production structure
-
-## How to run
-1. Clone the repository
-2. Create a virtual environment
-3. Install dependencies
-4. Set environment variables
-5. Run the agent
-
 ## Author
-Alexey AI
+
+[Alexey AI](https://github.com/AlexeyUi)
