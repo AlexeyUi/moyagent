@@ -1,31 +1,27 @@
 .env
 .venv/
+
+# Python/runtime
 __pycache__/
 *.pyc
-*.log
-output/
-reminders.txt
-tasks.txt
-notes.txt
-memory.json
-DIARY.md
-memory.txt
-notes.txt
-plan.txt
-tasks.txt
-reminders.txt
-напоминания.txt
-begat
-output/
-DIARY.md
-*.save
 
+# Logs and generated output
+*.log
+logs/
+output/
+
+# Local state and personal runtime data
+*.db
+*.save
+DIARY.md
+memory.json
 memory.txt
 notes.txt
 plan.txt
 tasks.txt
 reminders.txt
 напоминания.txt
-output/
-DIARY.md
-*.save
+getenv_hits.txt
+
+# Local scratch
+begat
