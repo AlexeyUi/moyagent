@@ -72,6 +72,15 @@ tools/               Agent tools
 start_all.py         Local multi-process runner
 ```
 
+## Documentation
+
+- [Project Story](docs/PROJECT_STORY.md) - how MoyAgent started and why it led
+  to Danny_Core.
+- [Publication Checklist](docs/PUBLICATION_CHECKLIST.md) - what should stay out
+  of the public repository.
+- [Original Local Guide](docs/MY_AGENT_GUIDE.md) - early notes from the
+  prototype phase.
+
 ## Tech Stack
 
 - Python
