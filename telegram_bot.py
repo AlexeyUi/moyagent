@@ -1,5 +1,5 @@
-import tempfile
 import os
+import tempfile
 import logging
 import httpx
 
@@ -13,13 +13,14 @@ from telegram.ext import (
     filters,
 )
 
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
 
-TELEGRAM_BOT_TOKEN = "8565884258:AAEeIQ2JIdYdp2U1rnLZX7Hr2zZBaHEcEsM"
 AGENT_BASE_URL = os.environ.get("AGENT_BASE_URL", "http://localhost:8011")
 
 
@@ -217,12 +218,14 @@ def main() -> None:
     if not TELEGRAM_BOT_TOKEN:
         raise RuntimeError("Не установлен TELEGRAM_BOT_TOKEN")
 
-    app = ApplicationBuilder()\
-    .token(TELEGRAM_BOT_TOKEN)\
-    .connect_timeout(30)\
-    .read_timeout(30)\
-    .write_timeout(30)\
-    .build()
+    app = (
+        ApplicationBuilder()
+        .token(TELEGRAM_BOT_TOKEN)
+        .connect_timeout(30)
+        .read_timeout(30)
+        .write_timeout(30)
+        .build()
+    )
 
     # /start
     app.add_handler(CommandHandler("start", start))
@@ -382,4 +385,3 @@ async def voice_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 if __name__ == "__main__":
     main()
-
