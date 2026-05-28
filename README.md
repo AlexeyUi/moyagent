@@ -162,7 +162,26 @@ Compile the main files:
 python -m py_compile agent.py ap_agent.py telegram_bot.py reminder_bot.py dashboard.py
 ```
 
-Start the API and create a task/step through HTTP to verify the basic flow.
+Start the API:
+
+```bash
+uvicorn ap_agent:app --host 127.0.0.1 --port 8011 --reload
+```
+
+In another terminal, run the HTTP smoke-check:
+
+```bash
+python scripts/smoke_api.py
+```
+
+Expected result:
+
+```text
+OK: MoyAgent API created a task and completed a local step.
+```
+
+The smoke-check creates an in-memory task and runs the local `list_notes`
+command. It does not call Telegram and does not require a real OpenAI request.
 
 ## Security Notes
 
